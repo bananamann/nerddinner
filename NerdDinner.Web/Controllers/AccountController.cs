@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Mvc;
 using NerdDinner.Web.Models;
+using Microsoft.AspNet.Authorization;
+using System.Runtime.Remoting.Contexts;
+using Microsoft.AspNet.Mvc.ModelBinding;
 
 namespace NerdDinner.Web.Controllers
 {
@@ -39,15 +42,13 @@ namespace NerdDinner.Web.Controllers
         {
             if (ModelState.IsValid)
             {
-                var signInStatus = await SignInManager.PasswordSignInAsync(model.UserName, model.Password, model.RememberMe, shouldLockout: false);
-                switch (signInStatus)
-                {
-                    case SignInStatus.Success:
-                        return RedirectToLocal(returnUrl);
-                    case SignInStatus.Failure:
-                    default:
-                        ModelState.AddModelError("", "Invalid username or password.");
-                        return View(model);
+                var signInStatus = await SignInManager.PasswordSignInAsync(model.UserName, model.Password, model.RememberMe, lockoutOnFailure: false);
+                if (signInStatus.Succeeded) {
+                    return RedirectToLocal(returnUrl);
+                }
+                else {
+                    ModelState.AddModelError("", "Invalid username or password.");
+                    return View(model);
                 }
             }
 
@@ -134,7 +135,7 @@ namespace NerdDinner.Web.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult LogOff()
         {
-            SignInManager.SignOut();
+            SignInManager.SignOutAsync();
             return RedirectToAction("Index", "Home");
         }
 
@@ -144,13 +145,13 @@ namespace NerdDinner.Web.Controllers
         {
             foreach (var error in result.Errors)
             {
-                ModelState.AddModelError("", error);
+                ModelState.AddModelError("", Convert.ToString(error));
             }
         }
 
         private async Task<ApplicationUser> GetCurrentUserAsync()
         {
-            return await UserManager.FindByIdAsync(Context.User.Identity.GetUserId());
+            return await UserManager.FindByIdAsync(User.Identity.Name);
         }
 
         public enum ManageMessageId
